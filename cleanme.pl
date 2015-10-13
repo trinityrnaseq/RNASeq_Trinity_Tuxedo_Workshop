@@ -59,5 +59,22 @@ foreach my $file (<*>) {
 }
 
 
+## remove output directories
+foreach my $dir ( qw{
+Sp_ds.RSEM
+Sp_hs.RSEM
+Sp_log.RSEM
+Sp_plat.RSEM
+__TrinDemo_checkpoints_dir
+edgeR
+genome
+tophat_out
+}
+    ) {
+    
+    `rm -rf $dir`;
+    
+}
+
 
 exit(0);
