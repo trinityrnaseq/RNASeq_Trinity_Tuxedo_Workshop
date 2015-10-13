@@ -184,11 +184,9 @@ foreach my $sample (sort keys %RNASEQ_DATASETS) {
     &process_cmd($align_estimate_command, "$checkpoints_dir/$sample.align_estimate.ok");
         
     
+    # look at the output
+    &process_cmd("head $rsem_result_file", "$checkpoints_dir/head.$sample.rsem.ok");
     
-    if ($sample eq "Sp_ds") {
-        # should be first one, use as example.
-        &process_cmd("head $rsem_result_file", "$checkpoints_dir/head.$sample.rsem.ok");
-    }
     
     
 }
@@ -215,20 +213,13 @@ foreach my $sample (sort keys %RNASEQ_DATASETS) {
 
 chdir("edgeR") or die $!;
 
-&process_cmd("$trinity_dir/Analysis/DifferentialExpression/analyze_diff_expr.pl --matrix ../Trinity_trans.counts.matrix.TMM_normalized.FPKM -P 1e-3 -C 2",
-    "$checkpoints_dir/analyze_diff_expr.ok");
+&process_cmd("$trinity_dir/Analysis/DifferentialExpression/analyze_diff_expr.pl --matrix ../Trinity_trans.TMM.EXPR.matrix -P 1e-3 -C 2",
+             "$checkpoints_dir/analyze_diff_expr.ok");
 
 
 &process_cmd("wc -l diffExpr.P1e-3_C2.matrix", "$checkpoints_dir/wc_diff_expr_matrix.ok"); # number of DE transcripts + 1
 
-
-if ($OS_type =~ /linux/i) {
-    &show("diffExpr.P1e-3_C2.matrix.log2.centered.genes_vs_samples_heatmap.pdf");
-}
-else {
-    # mac 
-    &show("diffExpr.P1e-3_C2.matrix.log2.centered.genes_vs_samples_heatmap.pdf\[0\]");
-}
+&show("diffExpr.P1e-3_C2.matrix.log2.centered.genes_vs_samples_heatmap.pdf");
 
 &process_cmd("$trinity_dir/Analysis/DifferentialExpression/define_clusters_by_cutting_tree.pl --Ptree 60 -R diffExpr.P1e-3_C2.matrix.RData",
     "$checkpoints_dir/cut_clusters_tree.ok");
@@ -291,7 +282,7 @@ sub show {
     }
     else {
         ## rely on ImageMagick:
-        $cmd = "display -background white -flatten $image";
+        $cmd = "open $image";
     }
     
     if ($AUTO_MODE) {
