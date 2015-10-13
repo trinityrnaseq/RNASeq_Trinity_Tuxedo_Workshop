@@ -1,0 +1,3 @@
+[submodule "RNASeq_Trinity_Tuxedo_Workshop.wiki"]
+	path = RNASeq_Trinity_Tuxedo_Workshop.wiki
+	url = https://github.com/trinityrnaseq/RNASeq_Trinity_Tuxedo_Workshop.wiki.git
