@@ -54,9 +54,6 @@ foreach my $file (<*>) {
                     unlink "trinity_out_dir/Trinity.fasta";
                 }
             }
-            else {
-                `rm -rf $file`;
-            }
         }
     }
 }
