@@ -234,7 +234,10 @@ exit(0);
 sub process_cmd {
     my ($cmd, $checkpoint) = @_;
 
-
+    unless ($checkpoint) {
+        die "Error, need checkpoint file defined";
+    }
+    
     if (-e $checkpoint) { return; }
 
     

@@ -42,14 +42,15 @@ if ($help_flag) {
 ## first check for tools needed.
 
 my @tools = qw (
-    bowtie
-    tophat
+    bowtie2
+    tophat2
     cufflinks
     cuffcompare
     cuffmerge
     cuffdiff
     samtools
     R
+    igv.sh
     
 );
 
@@ -69,12 +70,8 @@ my @tools = qw (
 
 }
 
-## check for env vars
-unless (defined $ENV{IGV}) {
-    die "Error, must set env var for IGV path";
-}
 
-{ 
+if (0) { 
     ## unzip the gzipped files.
     foreach my $file (<*.gz>) {
         my $unzipped_file = $file;
@@ -89,13 +86,30 @@ unless (defined $ENV{IGV}) {
 }
 
 
+my $BASEDIR = $FindBin::Bin;
+my $RNASEQ_DATA_DIR = "$BASEDIR/RNASEQ_data";
+
+
 main: {
 
-    unless (-e "genome.1.ebwt") {
-        &process_cmd("bowtie-build genome.fa genome");
+    my $checkpoints_dir = cwd() . "/__Tuxedo_checkpoints";
+    unless (-d $checkpoints_dir) {
+        mkdir $checkpoints_dir or die "Error, cannot mkdir $checkpoints_dir";
+    }
+        
+    unless (-e "genome.1.bt2") {
+        &process_cmd("bowtie2-build GENOME_data/genome.fa genome", "$checkpoints_dir/bowtie2.genome.idx.build.ok");
     }
     
-    my @samples = ("Sp_ds", "Sp_hs", "Sp_log", "Sp_plat");
+    
+
+    my %RNASEQ_DATASETS = ( 'Sp_ds' => [ "$RNASEQ_DATA_DIR/Sp_ds.left.fq.gz", "$RNASEQ_DATA_DIR/Sp_ds.right.fq.gz" ],
+                            'Sp_hs' =>  [ "$RNASEQ_DATA_DIR/Sp_hs.left.fq.gz", "$RNASEQ_DATA_DIR/Sp_hs.right.fq.gz" ],
+                            'Sp_log' => [ "$RNASEQ_DATA_DIR/Sp_log.left.fq.gz", "$RNASEQ_DATA_DIR/Sp_log.right.fq.gz" ],
+                            'Sp_plat' => [ "$RNASEQ_DATA_DIR/Sp_plat.left.fq.gz", "$RNASEQ_DATA_DIR/Sp_plat.right.fq.gz" ],
+        );
+    
+    my @samples = sort keys %RNASEQ_DATASETS;
     
     my @tophat_bam_files;
     my @cufflinks_gtf_files;
@@ -106,15 +120,15 @@ main: {
         
         my $tophat_out_dir = "tophat.$sample.dir";
         my $tophat_bam = "$tophat_out_dir/$sample.bam";
+
+        my ($left_fq, $right_fq) = @{$RNASEQ_DATASETS{$sample}};
         
-        unless (-s $tophat_bam) {
+        &process_cmd("tophat2 -I 1000 -i 20 --library-type fr-firststrand -o $tophat_out_dir genome $left_fq $right_fq", "$checkpoints_dir/tophat2.$sample.genome.align.ok");
+        &process_cmd("mv $tophat_out_dir/accepted_hits.bam $tophat_bam", "$checkpoints_dir/rename.$sample.tophat2.bam.ok");
             
-            &process_cmd("tophat -I 1000 -i 20 --bowtie1 --library-type fr-firststrand -o $tophat_out_dir genome $sample.left.fq $sample.right.fq");
-            &process_cmd("mv $tophat_out_dir/accepted_hits.bam $tophat_bam");
-            
-        }
         
-        &process_cmd("samtools index $tophat_bam") unless (-s "$tophat_bam.bai");
+        
+        &process_cmd("samtools index $tophat_bam", "$checkpoints_dir/idx.tophat.$sample.bam.ok");
             
         push (@tophat_bam_files, $tophat_bam);
 
@@ -123,11 +137,10 @@ main: {
         my $cuff_out_dir = "cufflinks.$sample.dir";
         my $cuff_gtf_file = "$cuff_out_dir/$sample.transcripts.gtf";
         
-        unless (-s $cuff_gtf_file) {
-            &process_cmd("cufflinks --overlap-radius 1 --library-type fr-firststrand -o $cuff_out_dir $tophat_bam");
+        &process_cmd("cufflinks --no-update-check --overlap-radius 1 --library-type fr-firststrand -o $cuff_out_dir $tophat_bam", "$checkpoints_dir/cufflinks.$sample.ok");
         
-            &process_cmd("mv $cuff_out_dir/transcripts.gtf $cuff_gtf_file");
-        }
+        &process_cmd("mv $cuff_out_dir/transcripts.gtf $cuff_gtf_file", "$checkpoints_dir/cuff.rename.$sample.ok");
+        
         
         push (@cufflinks_gtf_files, $cuff_gtf_file);
         
@@ -135,7 +148,7 @@ main: {
         
             eval { 
 
-                my $cmd = "java -Xmx2G -jar $ENV{IGV}/igv.jar -g `pwd`/genome.fa `pwd`/$cuff_gtf_file,`pwd`/genes.bed,`pwd`/$tophat_bam";
+                my $cmd = "igv.sh -g `pwd`/genome.fa `pwd`/$cuff_gtf_file,`pwd`/genes.bed,`pwd`/$tophat_bam";
                 if ($AUTO_MODE) {
                     $cmd .= " & ";
                 }
@@ -149,45 +162,49 @@ main: {
     
     {  ## Cuffmerge the individual cufflinks gtf files:
         
-        unless (-s "assemblies.txt") {
-            foreach my $cuff_file (@cufflinks_gtf_files) {
-                &process_cmd("echo $cuff_file >> assemblies.txt");
+        my $counter = 0;
+        foreach my $cuff_file (@cufflinks_gtf_files) {
+            if ($counter == 0) {
+                &process_cmd("echo $cuff_file > assemblies.txt", "$checkpoints_dir/echo." . basename($cuff_file) . ".ok");
+            }
+            else {
+                &process_cmd("echo $cuff_file >> assemblies.txt", "$checkpoints_dir/echo." . basename($cuff_file) . ".ok");
             }
         }
+                
+        &process_cmd("cat assemblies.txt", "$checkpoints_dir/cat.assemblies.ok");
         
-        &process_cmd("cat assemblies.txt");
-        
-        &process_cmd("cuffmerge -s genome.fa assemblies.txt") unless (-s "merged_asm/merged.gtf");
+        &process_cmd("cuffmerge -s GENOME_data/genome.fa assemblies.txt", "$checkpoints_dir/cuffmerge.ok");
         
         
-        eval { 
-            
-            ## show merged cuff transcripts in IGV along with the reads for all conditions.
-            
-            my $cmd = "java -Xmx2G -jar $ENV{IGV}/igv.jar -g `pwd`/genome.fa `pwd`/merged_asm/merged.gtf,`pwd`/genes.bed";
-            foreach my $bam (@tophat_bam_files) {
-                $cmd .= ",`pwd`/$bam";
-            }
-
-            if ($AUTO_MODE) {
-                $cmd .= " & ";
-            }
-            
-            &process_cmd($cmd);
-            
-
-        };
+        ## show merged cuff transcripts in IGV along with the reads for all conditions.
         
+        my $cmd = "igv.sh -g `pwd`/GENOME_data/genome.fa `pwd`/merged_asm/merged.gtf,`pwd`/GENOME_data/genes.bed";
+        foreach my $bam (@tophat_bam_files) {
+            $cmd .= ",`pwd`/$bam";
+        }
+        
+        if ($AUTO_MODE) {
+            $cmd .= " & ";
+        }
+        
+        &process_cmd($cmd, "$checkpoints_dir/igv.view.cuff.ok");
+                
 
         ################
         ## Run Cuffdiff
         ################
+
+        my $cuffdiff_cmd = "cuffdiff  --no-update-check --library-type fr-firststrand  -o diff_out -b GENOME_data/genome.fa -L " . join(",", @samples) . " -u merged_asm/merged.gtf " . join(" ", @tophat_bam_files);
         
-        &process_cmd("cuffdiff --library-type fr-firststrand  -o diff_out -b genome.fa -L " . join(",", @samples) . " -u merged_asm/merged.gtf " . join(" ", @tophat_bam_files)) unless (-e "diff_out/gene_exp.diff");
+        &process_cmd($cuffdiff_cmd, "$checkpoints_dir/cuffdiff.ok");
                      
-        &process_cmd("head diff_out/gene_exp.diff");
+        &process_cmd("head diff_out/gene_exp.diff", "$checkpoints_dir/head.gene_exp.diff.ok");
         
     }
+
+
+    print STDERR "\n\n\n\tDone with Tuxedo data processing.  Now explore data analysis using CummeRbund.\n\n\n";
     
 
     exit(0);
@@ -199,8 +216,14 @@ main: {
 
 ####
 sub process_cmd {
-    my ($cmd) = @_;
+    my ($cmd, $checkpoint) = @_;
+
+    unless ($checkpoint) {
+        die "Error, need checkpoint file defined";
+    }
     
+    if (-e $checkpoint) { return; }
+        
     unless ($AUTO_MODE) {
         
         my $response = "";
@@ -225,6 +248,8 @@ sub process_cmd {
     if ($ret) {
         die "Error, cmd: $cmd died with ret $ret";
     }
+
+    system("touch $checkpoint");
     
     return;
 }
