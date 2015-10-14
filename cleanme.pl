@@ -69,11 +69,26 @@ __TrinDemo_checkpoints_dir
 edgeR
 genome
 tophat_out
+
+cufflinks.Sp_ds.dir
+cufflinks.Sp_hs.dir
+cufflinks.Sp_log.dir
+cufflinks.Sp_plat.dir
+__Tuxedo_checkpoints
+merged_asm
+tophat.Sp_ds.dir
+tophat.Sp_hs.dir
+tophat.Sp_log.dir
+tophat.Sp_plat.dir
+diff_out
+
 }
     ) {
-    
-    `rm -rf $dir`;
-    
+
+    if (-d $dir) {
+        print STDERR "removing dir: $dir\n";
+        `rm -rf $dir` 
+    }
 }
 
 
