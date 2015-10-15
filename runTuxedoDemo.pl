@@ -170,6 +170,7 @@ main: {
             else {
                 &process_cmd("echo $cuff_file >> assemblies.txt", "$checkpoints_dir/echo." . basename($cuff_file) . ".ok");
             }
+            $counter++;
         }
                 
         &process_cmd("cat assemblies.txt", "$checkpoints_dir/cat.assemblies.ok");
