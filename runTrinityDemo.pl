@@ -211,7 +211,12 @@ foreach my $sample (sort keys %RNASEQ_DATASETS) {
 
 &process_cmd("sed '1,1d' edgeR/Trinity_trans.counts.matrix.Sp_log_vs_Sp_plat.edgeR.DE_results | awk '{ if (\$5 <= 0.05) print;}' | wc -l", "$checkpoints_dir/count_signif_DE_trans.ok");
 
-chdir("edgeR") or die $!;
+
+
+&process_cmd("cd edgeR", "$checkpoints_dir/cd.edgeR.ok");
+# now do it in the script. :)
+chdir("edgeR") or die "Error, could not cd to edgeR/"; 
+
 
 &process_cmd("$trinity_dir/Analysis/DifferentialExpression/analyze_diff_expr.pl --matrix ../Trinity_trans.TMM.EXPR.matrix -P 1e-3 -C 2",
              "$checkpoints_dir/analyze_diff_expr.ok");
