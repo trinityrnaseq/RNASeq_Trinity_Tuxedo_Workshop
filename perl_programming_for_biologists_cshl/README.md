@@ -34,7 +34,7 @@ The Perl script 'mini_inchworm.pl' implements several of the steps above, but is
 
 View the script and locate the subroutine
 
-```
+```Perl
 ####
 sub build_contig {
 my ($seed_kmer) = @_;
