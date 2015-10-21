@@ -12,25 +12,36 @@ my $VERBOSE = 0; # print lots of messages to track run along the way.
 
 my $KMER_SIZE = 25;
 
+
+# parse the count(tab)kmer file into  kmer => count  hashtable.
 my %KMER_COUNTS = &parse_KMER_COUNTS($kmer_counts_file);
 
 
-my $contig_counter = 0;
-
+# sort the kmers in descending order of abundance
 my @sorted_kmers_desc = reverse sort {$KMER_COUNTS{$a}<=>$KMER_COUNTS{$b}} keys %KMER_COUNTS;
 
+my $contig_counter = 0;
+
 while (@sorted_kmers_desc) {
-    
+
+    # take the seed as the most abundant kmer
     my $seed_kmer = shift @sorted_kmers_desc; # remove kmer at index [0], then shift indices to left.
 
 
+    # use it to seed an extension (as long as we haven't 
+    # already used it from a previous iteration)
+    
     if ($KMER_COUNTS{$seed_kmer} > 0) {
+        
         my $contig = &build_contig($seed_kmer);
 
         if (length($contig) >=  $MIN_CONTIG_LENGTH) {
             $contig_counter++;
             print "Contig [$contig_counter]: $contig\n";
         }
+    
+        # Now discard those kmers that exist in our contig.
+        # We can only use each kmer once.
         
         &remove_contig_kmers($contig);
         
@@ -66,7 +77,15 @@ sub build_contig {
         my $best_char = "";
 
         foreach my $nuc_char ('G', 'A', 'T', 'C') {
-        
+
+            ### <----  Write code here to find best extension kmer
+
+            ## Todo:
+            #     -contruct the next possible kmer based on the above nucleotide character extension
+            #     -check - is it the best extension so far?
+            #            - set $best_kmer_count and $best_char accordingly.
+
+            
             # contruct the next possible kmer based on the above nucleotide character extension
             my $next_kmer_candidate = $next_kmer_prefix . $nuc_char;
 
@@ -79,7 +98,21 @@ sub build_contig {
                 $best_char = $nuc_char;
                 $best_kmer_count = $count;
             }
+
+            ###   ----->
+            
         }
+
+        
+        ### <----  Write code to extend contig by $best_char (if we have a $best_char)
+        
+        ## Todo:
+        #       -if we have a best char, use it to extend the contig.
+        #       -if we do not have an extension, must stop (Hint: see while loop condition)
+        #       -beware of loops...  ie. if seed kmer is 'AAAAAAAAAAAAAA', you might keep
+        #           extending it by A for an eternity.
+        #           Hint: if you've used an extension kmer in this contig, don't use it again.
+        
         
         # if we have an extesion, add it to our contig and grow it by one base.
         if ($best_kmer_count > 0) {
@@ -99,6 +132,9 @@ sub build_contig {
             # no extension possible, should stop. hint - examine while loop condition.
             $have_extension_flag = 0;
         }
+
+        ###  -----> 
+        
     }
         
     return($contig);
