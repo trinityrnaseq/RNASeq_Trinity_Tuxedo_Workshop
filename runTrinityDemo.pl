@@ -209,7 +209,7 @@ foreach my $sample (sort keys %RNASEQ_DATASETS) {
 
 &show("edgeR/Trinity_trans.counts.matrix.Sp_log_vs_Sp_plat.edgeR.DE_results.MA_n_Volcano.pdf");
 
-&process_cmd("cat edgeR/Trinity_trans.counts.matrix.Sp_log_vs_Sp_plat.edgeR.DE_results | perl -lane 'if ($F[4] =~ /\d/ && $F[4] <= 0.05) { print;}' | wc -l", "$checkpoints_dir/count_signif_DE_trans.ok");
+&process_cmd("cat edgeR/Trinity_trans.counts.matrix.Sp_log_vs_Sp_plat.edgeR.DE_results | perl -lane 'if (\$F[4] =~ /\d/ && \$F[4] <= 0.05) { print;}' | wc -l", "$checkpoints_dir/count_signif_DE_trans.ok");
 
 
 eval {
